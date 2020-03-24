@@ -1,0 +1,204 @@
+#include "colours.h"
+
+boolean timeChangeDone = false;
+boolean alarmChangeDone = false;
+boolean colChangeDone = false;
+boolean abtChangeDone = false;
+boolean wifiChangeDone = false;
+boolean karmaChangeDone = false;
+boolean smartP = true;
+boolean wifiWorking = false;
+boolean connectedEsp = false;
+boolean gotKarma = false;
+
+byte pN = 0;
+byte pN1 = 0;
+byte pN2 = 0;
+
+int tC = CYAN;
+int STOCK = CYAN;
+int backB = BLACK;
+int toDisplayKarma = 0;
+
+int alms[8];
+boolean almsEn[8];
+
+byte state = 0;
+int aNo = 1;
+
+String tO = "";
+String response = "";
+
+int pKarma = 0;
+int cKarma = 0;
+
+/*
+  0 = mainmenuvert
+  1 = settings
+  2 = extras
+*/
+
+#define MP 1000
+#define LP 0
+#define rxEsp 52
+#define txEsp 53
+#define colLoc 40 // + 1 for second byte
+
+#include <avr/pgmspace.h>
+#include <Time.h>
+#include <TimeLib.h>
+#include "RTClib.h"
+#include "Adafruit_GFX.h"
+#include <MCUFRIEND_kbv.h>
+#include <TouchScreen.h>
+#include <Wire.h>
+#include <SoftwareSerial.h>
+
+MCUFRIEND_kbv tft;
+TouchScreen ts = TouchScreen(6, A1, A2, 7, 300);
+TSPoint tp;
+DateTime dt;
+RTC_DS3231 rtc;
+SoftwareSerial esp(rxEsp, txEsp);
+
+#include "EEPROMReadWrite.h"
+#include "Arrays.h"
+#include "timeSet.h"
+#include "timeCon.h"
+#include "pCalc.h"
+#include "about.h"
+#include "karmaChecker.h"
+#include "wifiSettings.h"
+#include "karmaDisplay.h"
+#include "ColourChange.h"
+#include "alarms.h"
+#include "MainMenu.h"
+#include "settings.h"
+#include "extras.h"
+
+void setup()
+{
+  pinMode(rxEsp, INPUT);
+  pinMode(txEsp, OUTPUT);
+
+  digitalWrite(51, HIGH);
+  tone(49, 10000, 1000);
+
+  Serial.begin(9600);
+  rtc.begin();
+  esp.begin(9600);
+
+  byte Bx1 = readEEPROM(0x57, 40);
+
+  tC = colours[Bx1];
+  STOCK = tC;
+
+  uint16_t ID = tft.readID();
+  tft.begin(ID);
+
+  tft.fillScreen(backB);
+  tft.setCursor(45, 100);
+  tft.setTextColor(tC, backB);
+  tft.setTextSize(2);
+  tft.print("DeskBoy Mk.7");
+  tft.setCursor(85, 170);
+  tft.setTextSize(1);
+  tft.print("By u/kaizer1419");
+
+  //load alarms from memory.
+
+  
+   for(int i = 0, j = 0; i <= 21; i += 3, j++)
+   {
+    alms[j] = timeCon(readEEPROM(0x57, i), readEEPROM(0x57, i + 1));
+    almsEn[j] = (boolean)readEEPROM(0x57, i + 2);
+    //Serial.println("Hour" + String(j) + " : " + String(readEEPROM(0x57, i)));
+    //Serial.println("Minutes" + String(j) + " : " + String(readEEPROM(0x57, i + 1)));
+    //Serial.println("Set: " + String(j) + " : " + String((boolean)readEEPROM(0x57, i+2))); 
+   }
+  
+  response = "";
+
+  Serial.println("Attempting connection with ESP8266...");
+  esp.flush();
+  delay(50);
+  esp.print("AT\r\n");
+  //Serial.println("AT\r\n");
+  //esp.flush();
+  while (esp.available() == 0);
+  response = esp.readString();
+  //Serial.println(response);
+
+  tft.fillScreen(backB);
+
+  if (response.indexOf("OK") >= 0 )
+  {
+    Serial.println("ESP8266 Ok!");
+    wifiWorking = true;
+  }
+
+  else
+  {
+    tft.setCursor(0, 0);
+    tft.print("ESP8266 failed!\nWiFi capabilities disabled...");
+    wifiWorking = false;
+    delay(3000);
+  }
+
+  esp.flush();
+  delay(50);
+  esp.print("AT+RST\r\n");
+  //tft.setCursor(0, 5);
+  tft.setTextSize(1);
+  //tft.println("Command sent...");
+  while (esp.available() == 0);
+  response = esp.readString();
+  Serial.println(response);
+  while (esp.available() == 0);
+  response = esp.readString();
+  Serial.println(response);
+
+  if (response.indexOf("Ai") >= 0 )
+  {
+    Serial.println("ESP8266 reset!");
+    delay(2000);
+    connectedEsp = false;
+  }
+
+  else
+  {
+    tft.setCursor(0, 0);
+    tft.print("ESP8266 failed!\nWiFi capabilities disabled...");
+    connectedEsp = false;
+    delay(3000);
+  }
+  esp.print("ATE0\r\n");
+
+  tft.fillScreen(backB);
+}
+
+
+void loop()
+{
+  if (state == 0)
+  {
+    MainMenu();
+  }
+
+  else if (state == 1)
+  {
+    settings();
+  }
+
+  else if (state == 2)
+  {
+    extras();
+  }
+
+  else if (state == 4)
+  {
+
+  }
+
+  //delay(50);
+}
