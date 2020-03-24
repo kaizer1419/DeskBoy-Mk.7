@@ -129,7 +129,7 @@ void wifiSettings()
           esp.flush();
           delay(50);
           esp.print("AT+CWJAP=\"AP",\"PWD\"\r\n");
-          //Serial.println("AT+CWJAP=\"Shoba-2G\",\"jump@1234\"\r\n");
+          
           tft.setCursor(0, 5);
           tft.setTextSize(1);
           tft.println("Command sent...");
